@@ -37,10 +37,6 @@ def main():
 
     print(lane_y_positions)
 
-    # Flatten the lane_y_positions list for easier car initialization
-    lane_y_positions_flat = [y for sublist in lane_y_positions for y in sublist]
-
-
     # Main loop
     running = True
     clock = pygame.time.Clock()
