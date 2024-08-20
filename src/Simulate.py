@@ -7,10 +7,6 @@ n = 10
 L = 100
 
 def main():
-        
-    # Initialize Pygame
-    pygame.init()
-
     # Screen dimensions
     SCREEN_WIDTH = 1000
     SCREEN_HEIGHT = 700
@@ -23,13 +19,13 @@ def main():
     # Car dimensions
     CAR_RADIUS = 10
 
-    # Create the screen
+    # Initialize Pygame
+    pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Traffic Simulation")
 
     # Define motorways and lanes
     NUM_MOTORWAYS = 4
-    LANES_PER_MOTORWAY = 3
     MOTORWAY_HEIGHT = SCREEN_HEIGHT // NUM_MOTORWAYS
 
     lane_y_positions = [
@@ -74,14 +70,12 @@ def main():
                     print(part)
                 x = (car[0] - part*L/4) * SCREEN_WIDTH * 4/L
                 y = lane_y_positions[int(part)][int(i)]
-                pygame.draw.circle(screen, 'hotpink', (x,y), radius= 10)
-
+                pygame.draw.circle(screen, RED, (x,y), radius=CAR_RADIUS)
 
         # Update the display
         pygame.display.flip()
-
-        # Frame rate
-        clock.tick(100)
+        clock.tick(60)
+        pygame.display.set_caption("Traffic Simulation - {} FPS".format(int(clock.get_fps())))
 
     pygame.quit()
 
