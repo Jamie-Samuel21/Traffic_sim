@@ -18,7 +18,7 @@ def main():
     RED = (255, 0, 0)
 
     # Car dimensions
-    CAR_RADIUS = 10
+    CAR_RADIUS = 20
 
     # Initialize Pygame
     pygame.init()
@@ -39,6 +39,11 @@ def main():
 
     lanes = initialize_cars(n, L, 5, 0.2, 2)
     print(lanes)
+
+    # Load Car Image
+    car_img = pygame.image.load("res/car.png")
+    car_img = pygame.transform.rotate(car_img, -90)
+    car_img = pygame.transform.scale(car_img, (CAR_RADIUS*3, CAR_RADIUS*2))
 
     # Main loop
     running = True
@@ -65,7 +70,10 @@ def main():
                     print(part)
                 x = (car[0] - part*L/4) * SCREEN_WIDTH * 4/L
                 y = lane_y_positions[int(part)][int(i)]
-                pygame.draw.circle(screen, RED, (x,y), radius=CAR_RADIUS)
+                # pygame.draw.circle(screen, RED, (x,y), radius=CAR_RADIUS)
+
+                # Draw car as image
+                screen.blit(car_img, (x-CAR_RADIUS, y-CAR_RADIUS))
 
         # Update The Display
         pygame.display.flip()
