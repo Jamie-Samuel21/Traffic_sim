@@ -1,10 +1,12 @@
+# Imports
 import numpy as np
 
-
-def initialize_cars(n, L, S, d, ST):  # n is no. of cars, L is length of motorway, S is avg. speed and d is std. dev of speed.
-                                    # ST is stopping distance ie min of LJ potential ish
-
-
+def initialize_cars(n,   # n is no. of cars
+                    L,   # L is length of motorway
+                    S,   # S is avg. speed
+                    d,   # d is std. dev of speed.
+                    ST): # ST is stopping distance ie min of LJ potential ish
+                                    
     lanes = np.empty((3, 1), dtype=object)
 
     for i in range(3):
@@ -22,9 +24,8 @@ def initialize_cars(n, L, S, d, ST):  # n is no. of cars, L is length of motorwa
 
     return lanes
 
-#print(initialize_cars(3, 100, 5, 0.3, 2))
-
-def Flj(p, ST1, Elj):  # change R for average of first and second radius.
+def Flj(p, ST1, Elj):
+    # Change R for average of first and second radius.
     F = -4 * Elj * (-12 * ST1 ** 12 * p ** (-13) + 6 * ST1 ** 6 * p ** (-7))
     return (F)
 
@@ -42,12 +43,10 @@ def forceLJ(cars1, cars2, L):
 
     return np.sum(force_mag, axis=0)
 
-
 def closecars(D, ST):
     mask = (D >= -ST) & (D < 0)
 
     columns_within_range = np.any(mask, axis=0)
-
     column_indices = np.where(columns_within_range)[0]
 
     return column_indices
@@ -69,7 +68,6 @@ def cars_out(lanes):
         cars = np.vstack((cars, lanes[i, 0]))
 
     return(cars[1:])
-
 
 def evolve(lanes, a, L):
     velocties = np.array([0])
@@ -136,6 +134,3 @@ def evolve(lanes, a, L):
             lanes[i - 1, 0] = np.append(lanes[i - 1, 0], undertakingcars, axis = 0)
 
     return lanes
-
-
-
