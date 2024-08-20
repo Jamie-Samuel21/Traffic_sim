@@ -5,8 +5,7 @@ def initialize_cars(n,   # n is no. of cars
                     L,   # L is length of motorway
                     S,   # S is avg. speed
                     d,   # d is std. dev of speed.
-                    ST): # ST is stopping distance ie min of LJ potential ish
-                                    
+                    ST): # ST is stopping distance ie min of LJ potential ish                         
     lanes = np.empty((3, 1), dtype=object)
 
     for i in range(3):
@@ -18,6 +17,7 @@ def initialize_cars(n,   # n is no. of cars
         # Initialize the speeds with a Gaussian distribution around S
         cars[:, 1] = np.random.normal(S, S * d, n)
 
+        # Initialize the stopping distances with a Gaussian distribution around ST
         cars[:, 2] = np.random.normal(ST, ST * d, n)
         cars[:, 3] = 0
         lanes[i,0] = cars

@@ -1,3 +1,4 @@
+# Imports
 import pygame
 import numpy as np
 from main import initialize_cars, evolve
@@ -35,7 +36,6 @@ def main():
         (MOTORWAY_HEIGHT * i + 3 * MOTORWAY_HEIGHT // 4)]
         for i in range(NUM_MOTORWAYS)
     ]
-    print(lane_y_positions)
 
     lanes = initialize_cars(n, L, 5, 0.2, 2)
     print(lanes)
@@ -58,7 +58,7 @@ def main():
 
         # Draw The Cars
         for i in range(3):
-            cars = lanes[i,0]
+            cars = lanes[i, 0]
             for car in cars:
                 part = np.floor(car[0]*4/L)
                 if part > 3 or part < 0:
