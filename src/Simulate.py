@@ -18,7 +18,7 @@ def main():
     RED = (255, 0, 0)
 
     # Car dimensions
-    CAR_RADIUS = 20
+    CAR_RADIUS = 16
 
     # Initialize Pygame
     pygame.init()
@@ -29,6 +29,7 @@ def main():
     # Define motorways and lanes
     NUM_MOTORWAYS = 4
     MOTORWAY_HEIGHT = SCREEN_HEIGHT // NUM_MOTORWAYS
+    LANE_HEIGHT = MOTORWAY_HEIGHT // 4
 
     lane_y_positions = [
         [(MOTORWAY_HEIGHT * i + MOTORWAY_HEIGHT // 4),
@@ -58,8 +59,24 @@ def main():
 
         # Draw The Lanes
         for motorway in lane_y_positions:
+
+            # For Each Lane
             for y in motorway:
-                pygame.draw.line(screen, WHITE, (0, y), (SCREEN_WIDTH, y), 2)
+
+                # Draw The Lane Background
+                pygame.draw.rect(screen, (70, 70, 70), (0, y - LANE_HEIGHT//2, SCREEN_WIDTH, LANE_HEIGHT))
+
+                # Draw the motorway center line as dashes
+                for x in range(0, SCREEN_WIDTH, 20):
+                    pygame.draw.line(screen, WHITE, (x, y), (x + 10, y), 2)
+                
+                # Draw each lane border
+                pygame.draw.line(screen, WHITE, (0, y - LANE_HEIGHT//2), (SCREEN_WIDTH, y - LANE_HEIGHT//2), 2)
+                pygame.draw.line(screen, WHITE, (0, y + LANE_HEIGHT//2), (SCREEN_WIDTH, y + LANE_HEIGHT//2), 2)
+
+            # Draw the border across all lanes
+            pygame.draw.line(screen, WHITE, (0, motorway[0] - LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[0] - LANE_HEIGHT//2), 8)
+            pygame.draw.line(screen, WHITE, (0, motorway[2] + LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[2] + LANE_HEIGHT//2), 8)
 
         # Draw The Cars
         for i in range(3):
