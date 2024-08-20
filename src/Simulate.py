@@ -22,6 +22,7 @@ def main():
     # Initialize Pygame
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
     pygame.display.set_caption("Traffic Simulation")
 
     # Define motorways and lanes
@@ -34,30 +35,28 @@ def main():
         (MOTORWAY_HEIGHT * i + 3 * MOTORWAY_HEIGHT // 4)]
         for i in range(NUM_MOTORWAYS)
     ]
-
     print(lane_y_positions)
-
-    # Main loop
-    running = True
-    clock = pygame.time.Clock()
 
     lanes = initialize_cars(n, L, 5, 0.2, 2)
     print(lanes)
 
+    # Main loop
+    running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
-        # Clear the screen
         screen.fill(BLACK)
 
-        # Draw the lanes
+        # Evolve Traffic
+        lanes = evolve(lanes, 0.05, 100)
+
+        # Draw The Lanes
         for motorway in lane_y_positions:
             for y in motorway:
                 pygame.draw.line(screen, WHITE, (0, y), (SCREEN_WIDTH, y), 2)
 
-        lanes = evolve(lanes, 0.05, 100)
+        # Draw The Cars
         for i in range(3):
             cars = lanes[i,0]
             for car in cars:
@@ -68,7 +67,7 @@ def main():
                 y = lane_y_positions[int(part)][int(i)]
                 pygame.draw.circle(screen, RED, (x,y), radius=CAR_RADIUS)
 
-        # Update the display
+        # Update The Display
         pygame.display.flip()
         clock.tick(60)
         pygame.display.set_caption("Traffic Simulation - {} FPS".format(int(clock.get_fps())))
