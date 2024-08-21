@@ -15,7 +15,6 @@ def main():
     # Colors
     BLACK = (0, 0, 0)
     WHITE = (255, 255, 255)
-    RED = (255, 0, 0)
 
     # Car dimensions
     CAR_RADIUS = 16
@@ -54,19 +53,19 @@ def main():
         for y in motorway:
 
             # Draw The Lane Background
-            pygame.draw.rect(lane_surface, (70, 70, 70), (0, y - LANE_HEIGHT//2, SCREEN_WIDTH, LANE_HEIGHT))
+            pygame.draw.rect(lane_surface, (60, 60, 60), (0, y - LANE_HEIGHT//2, SCREEN_WIDTH, LANE_HEIGHT))
 
             # Draw the motorway center line as dashes
             for x in range(0, SCREEN_WIDTH, 20):
-                pygame.draw.line(lane_surface, (*WHITE, 120), (x, y), (x + 10, y), 2)
+                pygame.draw.line(lane_surface, (*WHITE, 90), (x, y), (x + 10, y), 2)
             
             # Draw each lane border
             pygame.draw.line(lane_surface, WHITE, (0, y - LANE_HEIGHT//2), (SCREEN_WIDTH, y - LANE_HEIGHT//2), 2)
             pygame.draw.line(lane_surface, WHITE, (0, y + LANE_HEIGHT//2), (SCREEN_WIDTH, y + LANE_HEIGHT//2), 2)
 
         # Draw the border across all lanes
-        pygame.draw.line(lane_surface, WHITE, (0, motorway[0] - LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[0] - LANE_HEIGHT//2), 8)
-        pygame.draw.line(lane_surface, WHITE, (0, motorway[2] + LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[2] + LANE_HEIGHT//2), 8)
+        pygame.draw.line(lane_surface, WHITE, (0, motorway[0] - LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[0] - LANE_HEIGHT//2), 4)
+        pygame.draw.line(lane_surface, WHITE, (0, motorway[2] + LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[2] + LANE_HEIGHT//2), 4)
 
     # Main loop
     running = True
@@ -89,16 +88,15 @@ def main():
                 part = np.floor(car[0]*4/L)
                 if part > 3 or part < 0:
                     print(part)
+
+                # Draw Car
                 x = (car[0] - part*L/4) * SCREEN_WIDTH * 4/L
                 y = lane_y_positions[int(part)][int(i)]
-                # pygame.draw.circle(screen, RED, (x,y), radius=CAR_RADIUS)
-
-                # Draw car as image
                 screen.blit(car_img, (x-CAR_RADIUS, y-CAR_RADIUS))
 
         # Update The Display
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(100)
         pygame.display.set_caption("Traffic Simulation - {} FPS".format(int(clock.get_fps())))
 
     pygame.quit()

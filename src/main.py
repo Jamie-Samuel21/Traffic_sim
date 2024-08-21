@@ -80,9 +80,9 @@ def evolve(lanes, a, L):
 
     speeds = np.abs(velocties)
     vmax = np.max(speeds[1:])
-    print('vmax = ' + str(vmax))
+    # print('vmax = ' + str(vmax))
     dt = a / vmax
-    print('dt = :' + str(dt))
+    # print('dt = :' + str(dt))
 
     for i in range(3):
         cars = lanes[i, 0]
