@@ -1,136 +1,198 @@
-# Imports
 import numpy as np
+from dataclasses import dataclass
 
-def initialize_cars(n,   # n is no. of cars
-                    L,   # L is length of motorway
-                    S,   # S is avg. speed
-                    d,   # d is std. dev of speed.
-                    ST): # ST is stopping distance ie min of LJ potential ish                         
-    lanes = np.empty((3, 1), dtype=object)
+# =========================
+# Parameter class
+# =========================
 
-    for i in range(3):
-        cars = np.zeros((n, 4))
+@dataclass
+class SimParams:
+    n: int = 100                                                # Number of cars
+    L: float = 100.0                                            # Length of road
+    R: float = 1.0                                              # Radius of cars (Unit)
+    C: float = 2.0                                              # Over / Under take length
 
-        # Randomly initialize the positions between 0 and L
-        cars[:, 0] = np.linspace(0, L, n, endpoint=False)
+    a: float = 0.05                                             # Time step length (Unphysical)
+    v_rand: float = 10.0                                        # Random velocities fluctuations
+    v_avg: float = 20.0                                         # Average speed
+    D: float = 1.0                                              # Rate of velocity fluctuations
 
-        # Initialize the speeds with a Gaussian distribution around S
-        cars[:, 1] = np.random.normal(S, S * d, n)
 
-        # Initialize the stopping distances with a Gaussian distribution around ST
-        cars[:, 2] = np.random.normal(ST, ST * d, n)
-        cars[:, 3] = 0
-        lanes[i,0] = cars
+    Elj: float = 1.0                                            # Energy scale (Unit)
+    drag: float = 1.0                                           # drag coefficent (Unit)
+    overtake_dt: float = 0.2                                    # Overtake timestep (Unphysical)
 
+    @property
+    def dist(self):
+        return 2 * self.R
+
+
+# =========================
+# Initialisation
+# =========================
+
+def create_cars(n, L):                                          # Creates the cars and lanes
+    positions = np.random.uniform(0, L, size=n)                 # Inital postitions of cars
+    angles = np.random.uniform(0, 2 * np.pi, size=n)            # Inital velocity flucation angle
+    lane = np.arange(n) % 3
+    force = np.zeros_like(lane, dtype=float)
+
+    cars = np.column_stack((positions, angles, force))          # creates cars arrays
+    cars[:, 2] = 0.0
+
+    lanes = [                                                   # puts cars into lanes
+        cars[lane == i][cars[lane == i][:, 0].argsort()]
+        for i in range(3)
+    ]
     return lanes
 
-def Flj(p, ST1, Elj):
-    # Change R for average of first and second radius.
-    F = -4 * Elj * (-12 * ST1 ** 12 * p ** (-13) + 6 * ST1 ** 6 * p ** (-7))
+
+# =========================
+# Forces
+# =========================
+
+def Fs(dx, dist, Elj):                                          # linear Force to push cars appart
+    if 0 < dx < dist:
+        return Elj * (dx - dist)
+    if -dist < dx < 0:
+        return Elj * (dx + dist)
+    return 0.0
+
+
+def Fc(dx, D, Elj):                                             # coulomb repulsive force
+    return -Elj * 0.1 / (dx - D) ** 2
+
+def Flj(dx, D, Elj):                                            # Lenard Jones force
+    F = 4 * Elj * (-12 * D ** 12 * dx ** (-13) + 6 * D ** 6 * dx ** (-7))
     return (F)
 
-def forceLJ(cars1, cars2, L):
-    dx = cars1[:, 0:1].T - cars2[:, 0:1]
 
-    dx[:, :] = np.where(dx[:, :] < -0.8 * L, dx[:, :] + L, dx[:, :])
-    dx[:, :] = np.where(dx[:, :] > 0.8 * L, dx[:, :] - L, dx[:, :])
+# =========================
+# Separation phase
+# =========================
 
-    D = dx
+def seperate(lanes, params, t):                                 # pushes apart randomly place cars
+    velocities = []
 
-    D[D == 0] = np.inf
-    D[D > 0] = np.inf
-    force_mag = Flj(D, cars1[:, 2], 1)
+    for i in range(3):                                          # loops though cars
+        cars = lanes[i]
+        n = len(cars)
 
-    return np.sum(force_mag, axis=0)
+        for j, car in enumerate(cars):                          # calcuates forces on neighbouring cars
+            dx1 = (cars[(j - 1) % n][0] - car[0] + params.L / 2) % params.L - params.L / 2
+            dx2 = (cars[(j + 1) % n][0] - car[0] + params.L / 2) % params.L - params.L / 2
 
-def closecars(D, ST):
-    mask = (D >= -ST) & (D < 0)
+            force = Fs(dx1, params.dist, params.Elj) + Fs(dx2, params.dist, params.Elj)
+            cars[j, 2] = force / params.drag                    # appends veclocity to cars
 
-    columns_within_range = np.any(mask, axis=0)
-    column_indices = np.where(columns_within_range)[0]
+        velocities.extend(cars[:, 2])                           # puts all vecocities in a big list
 
-    return column_indices
+    vmax = max(np.max(np.abs(velocities)), 1e-3)                # calculates vmax
+    dt = min(params.a / vmax, 0.3)                              # calculates dt
 
-def noclosecars(D, ST):
-    mask = (D >= -ST) & (D <= ST)
+    vrms = np.sqrt(np.mean(np.array(velocities) ** 2))          # calculates vrms
 
-    # Find the columns that have all False values in the mask
-    columns_no_values_in_range = np.all(~mask, axis=0)
+    for i in range(3):                                          # loops though lanes, updates positions then resets veclocties
+        cars = lanes[i]
+        cars[:, 0] += cars[:, 2] * dt                          
+        cars[:, 2] = 0.0
+        cars[:, 0] %= params.L                                  # Perodic BC
 
-    # Get the indices of those columns
-    column_indices = np.where(columns_no_values_in_range)[0]
-
-    return(column_indices)
-
-def cars_out(lanes):
-    cars = np.empty((1, 3))
-    for i in range(3):
-        cars = np.vstack((cars, lanes[i, 0]))
-
-    return(cars[1:])
-
-def evolve(lanes, a, L):
-    velocties = np.array([0])
-    for i in range(3):
-        cars = lanes[i,0]
-        force = forceLJ(cars, cars, L)
-        cars[:, 3] += force
-        cars[:, 3] += cars[:,1]
-        velocties = np.hstack((velocties, cars[:, 3]))
-
-    speeds = np.abs(velocties)
-    vmax = np.max(speeds[1:])
-    # print('vmax = ' + str(vmax))
-    dt = a / vmax
-    # print('dt = :' + str(dt))
-
-    for i in range(3):
-        cars = lanes[i, 0]
-        cars[:, 0] += cars[:, 3] * dt
-        cars[:, 3] = 0
-        cars[:, 0] = np.where(cars[:, 0] > L, cars[:, 0] - L, cars[:, 0])
-
-    for i in range(2):
-        cars = lanes[i, 0]
-        dx = cars[:, 0:1].T - cars[:, 0:1]
-        dx[:, :] = np.where(dx[:, :] < -0.8 * L, dx[:, :] + L, dx[:, :])
-        dx[:, :] = np.where(dx[:, :] > 0.8 * L, dx[:, :] - L, dx[:, :])
-
-        overtake = closecars(dx, 3)
-
-        if len(overtake) > 0:
-            noneligable = []
-
-            for j in overtake:
-                xpos = lanes[i,0][j,0]
-                take = True
-                for car in lanes[i+1,0]:
-                    if abs(xpos - car[0]) < 3:
-                        take = False
-
-                if take == False:
-                    noneligable.append(j)
-
-            eligible = [i for i in overtake if i not in noneligable]
-
-            overtakingcars = cars[eligible, :]
-            lanes[i,0] = np.delete(cars, eligible, axis = 0)
-            lanes[i+1, 0] = np.append(lanes[i + 1, 0], overtakingcars, axis = 0)
+    return lanes, t + dt, vrms
 
 
-    for i in range(1,3):
-        carsouter = lanes[i, 0]
-        carsinner = lanes[i -1, 0]
-        dx = carsouter[:, 0:1].T - carsinner[:, 0:1]
-        dx[:, :] = np.where(dx[:, :] < -0.8 * L, dx[:, :] + L, dx[:, :])
-        dx[:, :] = np.where(dx[:, :] > 0.8 * L, dx[:, :] - L, dx[:, :])
+# =========================
+# Lane changing
+# =========================
 
-        undertake = noclosecars(dx, 3)
+def overtake(lanes, params):                                    # does overtakes
+    for i in range(2):                                          # loops over inner two lanes
+        cars = lanes[i]
+        cars_above = lanes[i + 1]
+        overtake_idx = []
 
-        if len(undertake) > 0:
+        for j, car in enumerate(cars):                          # loops though cars in a lane, checks if close to car infrount, if not skisps to next car
+            dx = (cars[(j + 1) % len(cars)][0] - car[0]) % params.L
+            if abs(dx) > params.C:
+                continue
 
-            undertakingcars = carsouter[undertake, :]
-            lanes[i,0] = np.delete(carsouter, undertake, axis = 0)
-            lanes[i - 1, 0] = np.append(lanes[i - 1, 0], undertakingcars, axis = 0)
+            if np.cos(cars[(j + 1) % len(cars)][1]) - np.cos(car[1]) > 0:   # checks is going faster than car infrount
+                continue
+
+            for other in cars_above:                            # Loops though cars in one lane outer, checks no car is too close
+                dx2 = (other[0] - car[0] + params.L / 2) % params.L - params.L / 2
+                if abs(dx2) < params.C:
+                    break
+            else:
+                overtake_idx.append(j)
+
+        if overtake_idx:                                        # If passes all tests preforms the overtake
+            movers = cars[overtake_idx]
+            lanes[i] = np.delete(cars, overtake_idx, axis=0)
+            lanes[i + 1] = np.vstack((lanes[i + 1], movers))
+            lanes[i + 1] = lanes[i + 1][lanes[i + 1][:, 0].argsort()]
 
     return lanes
+
+
+def undertake(lanes, params):                                   # Preformes undertakes
+    for i in range(1, 3):                                       # Loops through outer two lanes
+        cars = lanes[i]
+        cars_below = lanes[i - 1]
+        undertake_idx = []
+
+        for j, car in enumerate(cars):                          # Loops though cars, checks if any close cars in inner lane
+            for other in cars_below:
+                dx = (other[0] - car[0] + params.L / 2) % params.L - params.L / 2
+                if abs(dx) < params.C:
+                    break
+            else:
+                undertake_idx.append(j)
+
+        if undertake_idx:                                       # preforms undertake
+            movers = cars[undertake_idx]
+            lanes[i] = np.delete(cars, undertake_idx, axis=0)
+            lanes[i - 1] = np.vstack((lanes[i - 1], movers))
+            lanes[i - 1] = lanes[i - 1][lanes[i - 1][:, 0].argsort()]
+
+    return lanes
+
+
+# =========================
+# Evolution
+# =========================
+
+def evolve(lanes, params, t, counter):                          # Updates simulation
+    velocities = []
+
+    for i in range(3):                                          # Loops through lanes
+        cars = lanes[i]
+        n = len(cars)
+
+        for j, car in enumerate(cars):                          # Loops through cars
+            dx = (cars[(j + 1) % n][0] - car[0]) % params.L
+            force = Fc(dx, 2 * params.R, params.Elj)            # calculates force from car infrount
+                                                                # calculates veclocites
+            cars[j, 2] = max(force / params.drag  + params.v_rand * np.cos(car[1]) + params.v_avg, 0)
+
+        velocities.extend(cars[:, 2])                           # makes big list of velocities
+
+    vmax = max(np.max(np.abs(velocities)), 1e-3)                # calcualtes vmax
+    dt = min(params.a / vmax, 0.1)                              # calcualtes dt
+    vrms = np.sqrt(np.mean(np.array(velocities) ** 2))          # calcualtes vrms
+
+    for i in range(3):                                          # loops though lanes and updates position and angle
+        cars = lanes[i]
+        cars[:, 0] += cars[:, 2] * dt
+        cars[:, 1] += np.sqrt(2 * params.D * dt) * np.random.randn(len(cars))
+        cars[:, 0] %= params.L
+
+    t += dt                                                     # increases t
+
+    if t > counter:                                             # does overtakes if every overtake_dt
+        lanes = overtake(lanes, params)
+        lanes = undertake(lanes, params)
+        counter += params.overtake_dt
+
+    return lanes, t, vrms, counter
+
