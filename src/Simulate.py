@@ -1,105 +1,137 @@
-# Imports
 import pygame
 import numpy as np
-from main import initialize_cars, evolve
+from dataclasses import dataclass
 
-# Simulation Parameters
-n = 10
-L = 100
+@dataclass
+class SimParams:
+    n: int = 50                                                 # Number of cars
+    L: float = 100.0                                            # Length of road
+    R: float = 1.0                                              # Radius of cars (Unit)
+    C: float = 4.0                                              # Over / Under take length
 
-def main():
-    # Screen dimensions
-    SCREEN_WIDTH = 1000
-    SCREEN_HEIGHT = 700
+    a: float = 0.05                                             # Time step length (Unphysical)
+    v_rand: float = 10.0                                        # Random velocities fluctuations
+    v_avg: float = 20.0                                         # Average speed
+    D: float = 0.1                                              # Rate of velocity fluctuations
 
-    # Colors
-    BLACK = (0, 0, 0)
-    WHITE = (255, 255, 255)
 
-    # Car dimensions
-    CAR_RADIUS = 16
+    Elj: float = 1.0                                            # Energy scale (Unit)
+    drag: float = 1.0                                           # drag coefficent (Unit)
+    overtake_dt: float = 0.1                                    # Overtake timestep (Unphysical)
 
-    # Initialize Pygame
-    pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    clock = pygame.time.Clock()
-    pygame.display.set_caption("Traffic Simulation")
+    @property
+    def dist(self):
+        return 2 * self.R
 
-    # Define motorways and lanes
-    NUM_MOTORWAYS = 4
-    MOTORWAY_HEIGHT = SCREEN_HEIGHT // NUM_MOTORWAYS
-    LANE_HEIGHT = MOTORWAY_HEIGHT // 4
 
-    lane_y_positions = [
-        [(MOTORWAY_HEIGHT * i + MOTORWAY_HEIGHT // 4),
-        (MOTORWAY_HEIGHT * i + MOTORWAY_HEIGHT // 2),
-        (MOTORWAY_HEIGHT * i + 3 * MOTORWAY_HEIGHT // 4)]
-        for i in range(NUM_MOTORWAYS)
-    ]
+from traffic_model import (
+    create_cars,
+    seperate,
+    evolve
+)
 
-    lanes = initialize_cars(n, L, 5, 0.2, 2)
-    print(lanes)
+class TrafficSimulation:
+    def __init__(self):
+        pygame.init()
 
-    # Load Car Image
-    car_img = pygame.image.load("res/car.png")
-    car_img = pygame.transform.rotate(car_img, -90)
-    car_img = pygame.transform.scale(car_img, (CAR_RADIUS*3, CAR_RADIUS*2))
+        self.params = SimParams()
+        self.lanes = create_cars(self.params.n, self.params.L)
 
-    # Create Lane Transparent Surface
-    lane_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    for motorway in lane_y_positions:
+        self.t = 0.0
+        self.counter = 0.0
+        self.vrms = 10.0
+        self.check = True
 
-        # For Each Lane
-        for y in motorway:
+        self.SCREEN_WIDTH = 1000
+        self.SCREEN_HEIGHT = 700
+        self.NUM_MOTORWAYS = 4
 
-            # Draw The Lane Background
-            pygame.draw.rect(lane_surface, (60, 60, 60), (0, y - LANE_HEIGHT//2, SCREEN_WIDTH, LANE_HEIGHT))
+        self.screen = pygame.display.set_mode(
+            (self.SCREEN_WIDTH, self.SCREEN_HEIGHT)
+        )
+        pygame.display.set_caption("Traffic Simulation")
+        self.clock = pygame.time.Clock()
 
-            # Draw the motorway center line as dashes
-            for x in range(0, SCREEN_WIDTH, 20):
-                pygame.draw.line(lane_surface, (*WHITE, 90), (x, y), (x + 10, y), 2)
-            
-            # Draw each lane border
-            pygame.draw.line(lane_surface, WHITE, (0, y - LANE_HEIGHT//2), (SCREEN_WIDTH, y - LANE_HEIGHT//2), 2)
-            pygame.draw.line(lane_surface, WHITE, (0, y + LANE_HEIGHT//2), (SCREEN_WIDTH, y + LANE_HEIGHT//2), 2)
+        self._setup_lanes()
+        self._load_car()
 
-        # Draw the border across all lanes
-        pygame.draw.line(lane_surface, WHITE, (0, motorway[0] - LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[0] - LANE_HEIGHT//2), 4)
-        pygame.draw.line(lane_surface, WHITE, (0, motorway[2] + LANE_HEIGHT//2), (SCREEN_WIDTH, motorway[2] + LANE_HEIGHT//2), 4)
+    def _setup_lanes(self):
+        MOTORWAY_HEIGHT = self.SCREEN_HEIGHT // self.NUM_MOTORWAYS
+        self.LANE_HEIGHT = MOTORWAY_HEIGHT // 4
 
-    # Main loop
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-        screen.fill(BLACK)
+        self.lane_y_positions = [
+            [(MOTORWAY_HEIGHT * i + MOTORWAY_HEIGHT // 4),
+             (MOTORWAY_HEIGHT * i + MOTORWAY_HEIGHT // 2),
+             (MOTORWAY_HEIGHT * i + 3 * MOTORWAY_HEIGHT // 4)]
+            for i in range(self.NUM_MOTORWAYS)
+        ]
 
-        # Evolve Traffic
-        lanes = evolve(lanes, 0.05, 100)
+        self.lane_surface = pygame.Surface(
+            (self.SCREEN_WIDTH, self.SCREEN_HEIGHT),
+            pygame.SRCALPHA
+        )
 
-        # Draw The Lanes
-        screen.blit(lane_surface, (0, 0))
+        for motorway in self.lane_y_positions:
+            for y in motorway:
+                pygame.draw.rect(
+                    self.lane_surface, (60, 60, 60),
+                    (0, y - self.LANE_HEIGHT // 2,
+                     self.SCREEN_WIDTH, self.LANE_HEIGHT)
+                )
 
-        # Draw The Cars
-        for i in range(3):
-            cars = lanes[i, 0]
-            for car in cars:
-                part = np.floor(car[0]*4/L)
-                if part > 3 or part < 0:
-                    print(part)
+    def _load_car(self):
+        self.CAR_RADIUS = 16
+        self.car_img = pygame.image.load(
+            "/home/jamiesamuel/PhD work/Traffic_sim/pointer/car.png"
+        )
+        self.car_img = pygame.transform.rotate(self.car_img, -90)
+        self.car_img = pygame.transform.scale(
+            self.car_img, (self.CAR_RADIUS * 3, self.CAR_RADIUS * 2)
+        )
 
-                # Draw Car
-                x = (car[0] - part*L/4) * SCREEN_WIDTH * 4/L
-                y = lane_y_positions[int(part)][int(i)]
-                screen.blit(car_img, (x-CAR_RADIUS, y-CAR_RADIUS))
+    def update(self):
+        if self.vrms > 1e-3 and self.check:
+            self.lanes, self.t, self.vrms = seperate(
+                self.lanes, self.params, self.t
+            )
+        else:
+            self.check = False
+            self.lanes, self.t, self.vrms, self.counter = evolve(
+                self.lanes, self.params, self.t, self.counter
+            )
 
-        # Update The Display
+    def draw(self):
+        self.screen.fill((0, 0, 0))
+        self.screen.blit(self.lane_surface, (0, 0))
+
+        for lane_idx in range(3):
+            for car in self.lanes[lane_idx]:
+                part = int(np.floor(car[0] * 4 / self.params.L))
+                x = (car[0] - part * self.params.L / 4) * \
+                    self.SCREEN_WIDTH * 4 / self.params.L
+                y = self.lane_y_positions[part][lane_idx]
+
+                self.screen.blit(
+                    self.car_img,
+                    (x - self.CAR_RADIUS, y - self.CAR_RADIUS)
+                )
+
         pygame.display.flip()
-        clock.tick(100)
-        pygame.display.set_caption("Traffic Simulation - {} FPS".format(int(clock.get_fps())))
+        pygame.display.set_caption(f"time = {self.t:.3f}")
 
-    pygame.quit()
+    def run(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            self.update()
+            self.draw()
+            self.clock.tick(100)
+
+        pygame.quit()
+
 
 if __name__ == "__main__":
-    main()
+    TrafficSimulation().run()
